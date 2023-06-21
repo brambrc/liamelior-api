@@ -1,20 +1,18 @@
 package Controller
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
+
 	helper "liamelior-api/Helper"
 	"liamelior-api/Model"
-	"log"
 	"net/http"
-	"net/url"
-	"os"
 
 	"github.com/gin-gonic/gin"
 )
+
+type LoginInput struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
 
 func Register(context *gin.Context) {
 	var input Model.AuthenticationInput
@@ -41,7 +39,6 @@ func Register(context *gin.Context) {
 	_, err = user.Save()
 
 	if err != nil {
-		log.Fatal("Error saving user to database", err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -49,85 +46,9 @@ func Register(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{"message": "User created successfully!"})
 }
 
-func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
-	file, err := context.FormFile(fieldName)
-	if err != nil {
-		return "", err
-	}
-
-	src, err := file.Open()
-	if err != nil {
-		return "", err
-	}
-	defer src.Close()
-
-	tempFile, err := ioutil.TempFile("", "upload-*.jpg")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tempFile.Name())
-
-	dst, err := os.Create(tempFile.Name())
-	if err != nil {
-		return "", err
-	}
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", err
-	}
-
-	fileBytes, err := ioutil.ReadFile(tempFile.Name())
-	if err != nil {
-		return "", err
-	}
-
-	// Encode the file bytes to base64
-	encodedFile := base64.StdEncoding.EncodeToString(fileBytes)
-
-	imgbbKey := os.Getenv("IMGBB_TOKEN")
-	client := &http.Client{}
-	formData := url.Values{}
-	formData.Set("key", imgbbKey)
-	formData.Set("image", encodedFile)
-
-	url := os.Getenv("IMGBB_URL_UPLOAD")
-
-	res, err := client.PostForm(url+"key="+imgbbKey, formData)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-
-	responseData, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var response struct {
-		Data struct {
-			Image struct {
-				URL string `json:"url"`
-			} `json:"image"`
-		} `json:"data"`
-		Success bool `json:"success"`
-		Status  int  `json:"status"`
-	}
-
-	err = json.Unmarshal(responseData, &response)
-	if err != nil {
-		return "", err
-	}
-
-	if response.Success && response.Status == 200 {
-		return response.Data.Image.URL, nil
-	}
-
-	return "", fmt.Errorf("failed to upload photo" + string(responseData))
-
-}
 
 func Login(context *gin.Context) {
-	var input Model.AuthenticationInput
+	var input LoginInput
 
 	if err := context.ShouldBindJSON(&input); err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -154,5 +75,5 @@ func Login(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, gin.H{"jwt": jwt})
+	context.JSON(http.StatusOK, gin.H{"message": "Login success", "token": jwt})
 }
