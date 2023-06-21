@@ -1,42 +1,41 @@
 package Controller
 
 import (
-	"liamelior-api/Helper"
-	"liamelior-api/Model"
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"log"
-	"io/ioutil"
-	"os"
-	"io"
-	"net/url"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"encoding/base64"
+	"io"
+	"io/ioutil"
+	helper "liamelior-api/Helper"
+	"liamelior-api/Model"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Register(context *gin.Context) {
 	var input Model.AuthenticationInput
-    if err := context.ShouldBind(&input); err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-
-	
-	avatarFileName, err := UploadPhoto(context, "avatar")
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload avatar"})
+	if err := context.ShouldBind(&input); err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	avatarFileName, err := UploadPhoto(context, "avatar")
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload avatar", "message": err.Error()})
+		return
+	}
 
 	user := Model.User{
 		Username: input.Username,
 		Password: input.Password,
-		Email: input.Email,
-		Name: input.Name,
-		Role: input.Role,
-		Avatar: avatarFileName,
+		Email:    input.Email,
+		Name:     input.Name,
+		Role:     input.Role,
+		Avatar:   avatarFileName,
 	}
 
 	_, err = user.Save()
@@ -46,9 +45,11 @@ func Register(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "User created successfully!"})
 }
 
-func UploadPhoto(context *gin.Context, fieldName string) (string, error){
+func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
 	file, err := context.FormFile(fieldName)
 	if err != nil {
 		return "", err
@@ -83,7 +84,7 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error){
 	// Encode the file bytes to base64
 	encodedFile := base64.StdEncoding.EncodeToString(fileBytes)
 
-	imgbbKey := os.Getenv("IMGBB_KEY")
+	imgbbKey := os.Getenv("IMGBB_TOKEN")
 	client := &http.Client{}
 	formData := url.Values{}
 	formData.Set("key", imgbbKey)
@@ -91,7 +92,7 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error){
 
 	url := os.Getenv("IMGBB_URL_UPLOAD")
 
-	res, err := client.PostForm(url, formData)
+	res, err := client.PostForm(url+"key="+imgbbKey, formData)
 	if err != nil {
 		return "", err
 	}
@@ -121,39 +122,37 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error){
 		return response.Data.Image.URL, nil
 	}
 
-	return "", fmt.Errorf("failed to upload photo")
+	return "", fmt.Errorf("failed to upload photo" + string(responseData))
 
 }
 
 func Login(context *gin.Context) {
-    var input Model.AuthenticationInput
+	var input Model.AuthenticationInput
 
-    if err := context.ShouldBindJSON(&input); err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err := context.ShouldBindJSON(&input); err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    user, err := Model.FindUserByUsername(input.Username)
+	user, err := Model.FindUserByUsername(input.Username)
 
-    if err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    err = user.ValidatePassword(input.Password)
+	err = user.ValidatePassword(input.Password)
 
-    if err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    jwt, err := helper.GenerateJWT(user)
-    if err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	jwt, err := helper.GenerateJWT(user)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    context.JSON(http.StatusOK, gin.H{"jwt": jwt})
+	context.JSON(http.StatusOK, gin.H{"jwt": jwt})
 }
-
-
