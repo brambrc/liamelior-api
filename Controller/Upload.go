@@ -1,22 +1,24 @@
 package Controller
 
-
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"liamelior-api/Model"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+
 	"github.com/gin-gonic/gin"
-	"liamelior-api/Model"
 )
 
 type PhotoLandingPageInput struct {
-	Photo   string `form:"photo" json:"photo" binding:"required"`
-	Context string `form:"context" json:"context" binding:"required"`
+	Photo   *multipart.FileHeader `form:"photo" json:"photo" binding:"required"`
+	Context string                `form:"context" json:"context" binding:"required"`
 }
 
 func ContextPhoto(context *gin.Context) {
@@ -39,14 +41,13 @@ func ContextPhoto(context *gin.Context) {
 	}
 
 	_, err = photo.Save()
-	
+
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to save photo", "error": err.Error()})
 		return
 	}
 
-
-	context.JSON(http.StatusOK, gin.H{"message": "Photo uploaded successfully!", "photo": uploadedPhoto})
+	context.JSON(http.StatusOK, gin.H{"message": "Caraousel uploaded successfully!", "photo": uploadedPhoto})
 }
 
 func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
@@ -61,7 +62,7 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
 	}
 	defer src.Close()
 
-	tempFile, err := ioutil.TempFile("", "upload-*.webp")
+	tempFile, err := ioutil.TempFile("", "upload-*"+file.Filename)
 	if err != nil {
 		return "", err
 	}
@@ -71,12 +72,20 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
 		return "", err
 	}
 
-	fileBytes, err := ioutil.ReadFile(tempFile.Name())
+	webpPath := tempFile.Name() + ".webp"
+	err = convertToWebP(tempFile.Name(), webpPath)
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(webpPath)
+
+	fileBytes, err := ioutil.ReadFile(webpPath)
 	if err != nil {
 		return "", err
 	}
@@ -124,4 +133,13 @@ func UploadPhoto(context *gin.Context, fieldName string) (string, error) {
 
 	return "", fmt.Errorf("failed to upload photo" + string(responseData))
 
+}
+
+func convertToWebP(inputPath, outputPath string) error {
+	cmd := exec.Command("cwebp", inputPath, "-o", outputPath)
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to convert image to WebP: %v", err)
+	}
+	return nil
 }

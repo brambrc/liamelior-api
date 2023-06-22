@@ -1,22 +1,25 @@
 package helper
 
 import (
-    "liamelior-api/Model"
-    "github.com/golang-jwt/jwt/v4"
-    "os"
-    "strconv"
-    "time"
+	"liamelior-api/Model"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var privateKey = []byte(os.Getenv("JWT_PRIVATE_KEY"))
 
 func GenerateJWT(user Model.User) (string, error) {
-    tokenTTL, _ := strconv.Atoi(os.Getenv("TOKEN_TTL"))
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "id":   user.ID,
-        "iat":  time.Now().Unix(),
-        "exp":  time.Now().Add(time.Second * time.Duration(tokenTTL)).Unix(),
-        "role": user.Role,
-    })
-    return token.SignedString(privateKey)
+	tokenTTL, _ := strconv.Atoi(os.Getenv("TOKEN_TTL"))
+	claims := jwt.MapClaims{
+		"id":   user.ID,
+		"role": user.Role,
+		"exp":  time.Now().Add(time.Minute * time.Duration(tokenTTL)).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString(privateKey)
 }

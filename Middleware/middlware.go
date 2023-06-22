@@ -1,64 +1,58 @@
 package Middleware
 
 import (
-	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 	"net/http"
 	"os"
-	"time"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-type CustomClaims struct {
-	jwt.StandardClaims
-	Role string `json:"role"`
-}
+var privateKey = []byte(os.Getenv("JWT_PRIVATE_KEY"))
 
-func RoleMiddleware(requiredRole string) gin.HandlerFunc {
+func RoleMiddleware(role string) gin.HandlerFunc {
+	// return the HandlerFunc
 	return func(c *gin.Context) {
-		// Get the token from the request header
-		tokenString := c.GetHeader("Authorization")
+		// get the token from the header
+		tokenString := c.Request.Header.Get("Authorization")
+		// remove the Bearer prefix
+		tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+		// parse the token
 
-		// Parse and validate the token with custom claims
-		token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			// Verify the token signing method
-			if token.Method != jwt.SigningMethodHS256 {
-				return nil, fmt.Errorf("invalid token signing method")
-			}
-			return []byte(os.Getenv("JWT_PRIVATE_KEY")), nil
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return privateKey, nil
 		})
 
-		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		// if there is an error, the token must have expired
+
+		if err != nil {
+			// return a forbidden status
+			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 
-		// Extract the claims from the token
-		claims, ok := token.Claims.(*CustomClaims)
-		if !ok || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			return
+		// validate the token
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			// check if the role matches
+			if claims["role"] == "Admin" {
+				// set the user id to the context
+
+				c.Set("user_id", claims["id"])
+				// continue with the request
+				c.Next()
+			} else {
+				// return a forbidden status
+				c.AbortWithStatus(http.StatusForbidden)
+
+			}
+		} else {
+			// return a forbidden status
+			c.AbortWithStatus(http.StatusForbidden)
 		}
 
-		 // Check if the token is expired
-		if time.Unix(claims.ExpiresAt, 0).Before(time.Now()) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
-			return
-		}
-
-		// Get the role from the claims
-		role := claims.Role
-
-		// Check if the role has sufficient permissions
-		if role != requiredRole {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient role permissions"})
-			return
-		}
-
-		// Pass the role to the next handler
-		c.Set("role", role)
-		c.Next()
 	}
+
 }
 
 func AdminMiddleware() gin.HandlerFunc {

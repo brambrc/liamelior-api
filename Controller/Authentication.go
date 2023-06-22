@@ -1,7 +1,6 @@
 package Controller
 
 import (
-
 	helper "liamelior-api/Helper"
 	"liamelior-api/Model"
 	"net/http"
@@ -43,9 +42,8 @@ func Register(context *gin.Context) {
 		return
 	}
 
-	context.JSON(http.StatusOK, gin.H{"message": "User created successfully!"})
+	context.JSON(http.StatusOK, gin.H{"message": "User created successfully! "})
 }
-
 
 func Login(context *gin.Context) {
 	var input LoginInput
