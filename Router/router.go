@@ -21,6 +21,16 @@ func ServeApps() {
 		ContentManagementRoutes(contentManagement)
 	}
 
+	registerMember := router.Group("/register")
+	{
+		RegisterRoutes(registerMember)
+	}
+
+	milestone := router.Group("/milestone")
+	{
+		MilestoneRoute(milestone)
+	}
+
 	router.Run(":8080")
 	fmt.Println("Server is running on port 8080")
 }
@@ -36,4 +46,13 @@ func ContentManagementRoutes(router *gin.RouterGroup) {
 	router.POST("/text-content-update", Middleware.AdminMiddleware(), Controller.TextContentUpdate)
 	router.GET("/get-caraousel-photo", Controller.GetCaraouselPhoto)
 	router.GET("/gallery", Controller.GetGallery)
+}
+
+func RegisterRoutes(router *gin.RouterGroup) {
+	router.POST("/member", Controller.RegisterMember)
+}
+
+
+func MilestoneRoute(router *gin.RouterGroup) {
+	router.POST("/store", Middleware.AdminMiddleware(), Controller.SaveMilestone)
 }
