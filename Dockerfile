@@ -17,9 +17,6 @@ RUN go install -v ./...
 
 RUN apt-get update && apt-get install -y postgresql-client
 
-# Refer the env file to the container
- ./ .env 
-
 # Build the application
 RUN go build -o main .
 
