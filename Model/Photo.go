@@ -30,6 +30,24 @@ func FindPhotosByContext(context string) ([]Photo, error) {
 	return photos, nil
 }
 
+func FindPhotosByContextPagination(context string, limit, offset int) ([]Photo, error) {
+	var photos []Photo
+	err := Database.Database.Where("context = ?", context).Limit(limit).Offset(offset).Find(&photos).Error
+	if err != nil {
+		return nil, err
+	}
+	return photos, nil
+}
+
+func CountPhotosByContext(context string) (int64, error) {
+	var count int64
+	err := Database.Database.Model(&Photo{}).Where("context = ?", context).Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func FindPhotosByContextWithParam(context string, limit int) ([]Photo, error) {
 	var photos []Photo
 	err := Database.Database.Where("context = ?", context).Limit(limit).Find(&photos).Error

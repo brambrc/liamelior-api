@@ -1,19 +1,19 @@
 package main
 
-
 import (
 	"liamelior-api/Database"
 	"liamelior-api/Model"
 	"liamelior-api/Router"
-	"github.com/joho/godotenv"
 	"log"
+
+	"github.com/joho/godotenv"
 )
 
-
-func main(){
+func main() {
 	loadEnv()
 	loadDatabase()
 	Router.ServeApps()
+	Router.CronJob()
 }
 
 func loadEnv() {
@@ -28,6 +28,8 @@ func loadDatabase() {
 	Database.Connect()
 	Database.Database.AutoMigrate(&Model.User{})
 	Database.Database.AutoMigrate(&Model.Photo{})
+	Database.Database.AutoMigrate(&Model.Milestone{})
+	Database.Database.AutoMigrate(&Model.Member{})
+	Database.Database.AutoMigrate(&Model.TextContent{})
+	Database.Database.AutoMigrate(&Model.Schedule{})
 }
-
-

@@ -61,6 +61,17 @@ func TextContentStore(context *gin.Context) {
 	context.JSON(http.StatusOK, gin.H{"message": "Text content created successfully!", "textContent": textContent})
 }
 
+func GetTextContent(context *gin.Context) {
+	textContent, err := Model.FindTextContentById()
+
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to find text content", "error": err.Error()})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "Text content found", "textContent": textContent})
+}
+
 func TextContentUpdate(context *gin.Context) {
 	var input Model.TextContent
 	err := context.ShouldBindJSON(&input)

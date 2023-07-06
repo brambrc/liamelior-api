@@ -2,6 +2,7 @@ package Controller
 
 import (
 	"liamelior-api/Model"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -21,33 +22,56 @@ func GetCaraouselPhoto(context *gin.Context) {
 }
 
 func GetGallery(context *gin.Context) {
-
-	//check if request had a query param
-	//if it did, get the query param
 	param := context.Query("limit")
+	pageParam := context.Query("page")
+
+	limit := 3
+	page := 1
 
 	if param != "" {
-		//convert param into int
-		limit, err := strconv.Atoi(param)
-		if err != nil {
-			context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get photo", "error": err.Error()})
-			return
+		l, err := strconv.Atoi(param)
+		if err == nil && l > 0 {
+			limit = l
 		}
-		photo, err := Model.FindPhotosByContextWithParam("gallery", limit)
-		if err != nil {
-			context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get photo", "error": err.Error()})
-			return
-		}
-		context.JSON(http.StatusOK, gin.H{"message": "Gallery retrieved successfully!", "photo": photo})
-
-	} else {
-		photo, err := Model.FindPhotosByContext("gallery")
-		if err != nil {
-			context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get photo", "error": err.Error()})
-			return
-		}
-		context.JSON(http.StatusOK, gin.H{"message": "Gallery retrieved successfully!", "photo": photo})
-
 	}
 
+	if pageParam != "" {
+		p, err := strconv.Atoi(pageParam)
+		if err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	photos, err := Model.FindPhotosByContextPagination("gallery", limit, offset)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get photos", "error": err.Error()})
+		return
+	}
+
+	count, err := Model.CountPhotosByContext("gallery")
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get photo count", "error": err.Error()})
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(count) / float64(limit)))
+
+	response := gin.H{
+		"message":     "Gallery retrieved successfully!",
+		"photos":      photos,
+		"currentPage": page,
+		"totalPages":  totalPages,
+	}
+
+	if page > 1 {
+		response["previousPage"] = page - 1
+	}
+
+	if page < totalPages {
+		response["nextPage"] = page + 1
+	}
+
+	context.JSON(http.StatusOK, response)
 }
